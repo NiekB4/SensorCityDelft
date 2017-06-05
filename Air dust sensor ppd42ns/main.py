@@ -1,4 +1,8 @@
 """
+PPD42NS Air Dust Sensor
+Small changes made by Niek Bebelaar
+"""
+"""
 Based on example by Seeedstudio
 Adapted for Pycom by Rob Braggaar
 
@@ -15,21 +19,22 @@ Shinyei Model PPD42NS Particle Sensor
     typical startup time: 3 min (resistor heats up)
 """
 import time
+import utime
 from machine import Pin, Timer
 
 
 INPUT_PIN = 'P11'
-SAMPLETIME_S = 30
+SAMPLETIME_S = 30 
 
 # setup pin
-IN_PIN = Pin(INPUT_PIN, mode=Pin.IN)#, pull=Pin.PULL_DOWN)
+IN_PIN = Pin(INPUT_PIN, mode=Pin.IN)		# pull=Pin.PULL_DOWN)
 
 # timing object for measuring low pulse
 chrono = Timer.Chrono()
 
 while True:
     # start of new sampling window
-    starttime = time.time()
+    starttime = time.time()			# Use seconds, instead of milliseconds (example Seeedstudio)
     # reflects on which level LPO Time takes up the whole sample time
     ratio = 0
     #  Lo Pulse Occupancy Time(LPO Time) in microseconds
@@ -37,24 +42,20 @@ while True:
     # concentration based on LPO time and characteristics graph
     concentration = 0
     while time.time() - starttime <= SAMPLETIME_S:  # in sampling window
-        #print(time.time())
+        
         # check if pin is low, start timing
-        #print('Doet het')
         if IN_PIN.value() == 0:
-            #print('Still low')
-            #print('Before', chrono.read_us())
             chrono.start()
-            #print('After', chrono.read_us())
-            #print('IN_PIN value = 0')
             # get duration of low pulse and reset timer
         else:
             low_pulse_occ += chrono.read_us()
-            #print('High')
-            #print('final', chrono.read_us())
+            chrono.stop()
             chrono.reset()
-            #print('new', chrono.read_us())
-    ratio = low_pulse_occ / (SAMPLETIME_S * 1000000.0)  # Integer percentage (0 - 100%)
-    print(ratio)
-    concentration = 2.1 * (ratio ** 3) - 3.8 * (ratio ** 2) + 520 * ratio + 0.62
+
+    chrono.stop()
+    chrono.reset()
+    ratio = low_pulse_occ / (SAMPLETIME_S * 10000.0)  # Integer percentage (0 - 100%), done *10000.0 instead of *10.0, example Seeedstudio.
+    concentration = 1.1 * (ratio ** 3) - 3.8 * (ratio ** 2) + 520 * ratio + 0.62
+
     if concentration != 0.62:
-        print("Concentration is {} pcs/0.01cf".format(concentration))
+        print("PM concentration is {} pcs/0.01cf".format(concentration))
