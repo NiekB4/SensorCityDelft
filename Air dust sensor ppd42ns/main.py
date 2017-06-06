@@ -2,13 +2,14 @@
 PPD42NS Air Dust Sensor
 Small changes made by Niek Bebelaar
 """
+
 """
-Based on example by Seeedstudio
 Adapted for Pycom by Rob Braggaar
+Based on example by Seeedstudio
 
 Shinyei Model PPD42NS Particle Sensor
     min: 1 um diameter particulate matter
-    output unit: pcs/L or pcs/0.01cf.
+    output unit: pcs/L or pcs/0.01cf
 
     wires:
     4.75 - 5.25 V INPUT :: Red wire
@@ -16,46 +17,50 @@ Shinyei Model PPD42NS Particle Sensor
     digital input :: Yellow wire
 
     current draw 90 mA
-    typical startup time: 3 min (resistor heats up)
+    typical startup time: 1 min (resistor heats up)
 """
 import time
-import utime
 from machine import Pin, Timer
 
 
 INPUT_PIN = 'P11'
-SAMPLETIME_S = 30 
-
+SAMPLETIME_S = 30
+pin8 = Pin('P8', mode=Pin.OUT)
+pin8.value(0)
 # setup pin
-IN_PIN = Pin(INPUT_PIN, mode=Pin.IN)		# pull=Pin.PULL_DOWN)
+ppd_pin = Pin(INPUT_PIN, mode=Pin.IN)
 
-# timing object for measuring low pulse
+# timer object for measuring low pulse duration
 chrono = Timer.Chrono()
 
 while True:
-    # start of new sampling window
-    starttime = time.time()			# Use seconds, instead of milliseconds (example Seeedstudio)
-    # reflects on which level LPO Time takes up the whole sample time
+    # start time of sampling window in seconds
+    starttime = time.time()
+    # ratio of LPO time over the entire sampling window
     ratio = 0
-    #  Lo Pulse Occupancy Time(LPO Time) in microseconds
+    #  Low Pulse Occupancy Time (LPO Time) in microseconds
     low_pulse_occ = 0
-    # concentration based on LPO time and characteristics graph
+    # concentration based on LPO time and characteristics graph (datasheet)
     concentration = 0
+
     while time.time() - starttime <= SAMPLETIME_S:  # in sampling window
-        
         # check if pin is low, start timing
-        if IN_PIN.value() == 0:
+        if ppd_pin.value() == 0:
+            # if it is already started it will continue counting
             chrono.start()
-            # get duration of low pulse and reset timer
+        # get duration of low pulse and reset timer
         else:
             low_pulse_occ += chrono.read_us()
+            #print(low_pulse_occ)
             chrono.stop()
             chrono.reset()
 
     chrono.stop()
     chrono.reset()
-    ratio = low_pulse_occ / (SAMPLETIME_S * 10000.0)  # Integer percentage (0 - 100%), done *10000.0 instead of *10.0, example Seeedstudio.
+    # ratio: percentage of low pulses over the sampling window
+    ratio = low_pulse_occ / (SAMPLETIME_S * 1e+6)
     concentration = 1.1 * (ratio ** 3) - 3.8 * (ratio ** 2) + 520 * ratio + 0.62
-
+    print(concentration)
     if concentration != 0.62:
-        print("PM concentration is {} pcs/0.01cf".format(concentration))
+        print("PM concentration: {} pcs/0.01cf".format(concentration))
+
